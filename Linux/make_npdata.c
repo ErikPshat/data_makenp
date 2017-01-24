@@ -1114,8 +1114,6 @@ int encrypt_data(FILE *in, FILE *out, EDAT_HEADER *edat, NPD_HEADER *npd, unsign
 	{
 		if ((edat->flags & SDAT_FLAG) == SDAT_FLAG)
 			fwrite(sdat_footer_v1, 0x10, 1, out);
-		else
-			fwrite(edat_footer_v1, 0x10, 1, out);
 	}
 	else if (npd->version == 2)
 	{
@@ -1148,14 +1146,14 @@ int forge_data(unsigned char *key, EDAT_HEADER *edat, NPD_HEADER *npd, FILE *f)
 	unsigned char empty_header[0xA0];
 	unsigned char header_hash[0x10];
 	unsigned char metadata_hash[0x10];
-	unsigned char header_signature[0x28];
-	unsigned char metadata_signature[0x28];
+	unsigned char metadata_signature[0x28] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+	unsigned char header_signature[0x28] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 	memset(header, 0, 0xA0);
 	memset(empty_header, 0, 0xA0);
 	memset(header_hash, 0, 0x10);
 	memset(metadata_hash, 0, 0x10);
-	memset(header_signature, 0, 0x28);
 	memset(metadata_signature, 0, 0x28);
+	memset(header_signature, 0, 0x28);
 
 	// Setup the hashing mode and the crypto mode used in the file.
 	int crypto_mode = 0x1;
@@ -1217,15 +1215,13 @@ int forge_data(unsigned char *key, EDAT_HEADER *edat, NPD_HEADER *npd, FILE *f)
 	fseeko64(f, 0xA0, SEEK_SET);
 	fwrite(header_hash, 0x10, 1, f);
 
-	// ECDSA header signature (fill with random data for now).
-	fseeko64(f, 0xB0, SEEK_SET);
-	prng(header_signature, 0x28);
-	fwrite(header_signature, 0x28, 1, f);
-
 	// ECDSA metadata signature (fill with random data for now).
-	fseeko64(f, 0xD8, SEEK_SET);
-	prng(metadata_signature, 0x28);
+	fseeko64(f, 0xB0, SEEK_SET);
 	fwrite(metadata_signature, 0x28, 1, f);
+
+	// ECDSA header signature (fill with random data for now).
+	fseeko64(f, 0xD8, SEEK_SET);
+	fwrite(header_signature, 0x28, 1, f);
 
 	// Cleanup.
 	free(metadata);
@@ -1355,7 +1351,7 @@ bool pack_data(FILE *input, FILE *output, const char* input_file_name, unsigned 
 	printf("NPD file: %s\n", input_file_name);
 	printf("NPD version: %d\n", NPD->version);
 	printf("NPD license: %d\n", NPD->license);
-	printf("NPD type: 0%x\n", NPD->type);
+	printf("NPD type: %x\n", NPD->type);
 	if ((EDAT->flags & SDAT_FLAG) == SDAT_FLAG)
 	{
 	printf("\n");
@@ -1531,8 +1527,8 @@ void print_usage()
 	printf("            2 - Local license (uses RAP file as key)\n");
 	printf("            3 - Free license (uses klic as key)\n");
 	printf("<type>:     00 - Common\n");
-	printf("            01 - PS2 EDAT\n");
-	printf("            20 - PSP Remasters\n");
+	printf("            01 - PS2 EDAT and Theme/Avatar/Activation key\n");
+	printf("            20 - PSP Remasters (disc bind)\n");
 	printf("            21 - Modules (disc bind)\n");
 	printf("            30 - Unknown\n");
 	printf("<cID>:      Content ID (XXYYYY-AAAABBBBB_CC-DDDDDDDDDDDDDDDD)\n");
